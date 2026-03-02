@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>护肤日记 Care your skin</title>
+<style>
+  :root { --main-color: #8B7355; --bg-color: #FDFBF7; --text-color: #333; --light-text: #888; }
+  body { background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, system-ui, sans-serif; margin: 0; padding-bottom: 80px; overflow-x: hidden; }
+  
+  /* --- 欢迎遮罩 --- */
+  #welcome-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: var(--bg-color); display: flex; flex-direction: column;
+    justify-content: center; align-items: center; z-index: 3000; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .btn-start { padding: 15px 50px; background: var(--main-color); color: white; border-radius: 30px; border: none; font-size: 18px; cursor: pointer; box-shadow: 0 4px 15px rgba(139,115,85,0.3); }
+
+  /* --- 导航栏 --- */
+  .bottom-nav { position: fixed; bottom: 0; width: 100%; height: 65px; background: #FFF; display: flex; border-top: 1px solid #EEE; z-index: 1000; }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; color: var(--light-text); cursor: pointer; transition: 0.3s; }
+  .nav-item.active { color: var(--main-color); font-weight: bold; }
+  .nav-icon { font-size: 20px; margin-bottom: 2px; }
+
+  /* --- 视图控制 --- */
+  .view { display: none; padding: 20px; max-width: 600px; margin: 0 auto; animation: fadeIn 0.4s ease; }
+  .view.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* --- 打卡界面 --- */
+  .expiry-banner { background: #FFF5E6; border-left: 4px solid #FFA500; padding: 12px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #855C33; }
+  .section-title { font-size: 13px; color: var(--light-text); margin: 15px 0 8px; font-weight: 500; }
+  .todo-section { background: white; border-radius: 16px; padding: 5px 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); margin-bottom: 20px; }
+  .todo-item { display: flex; align-items: center; padding: 14px 0; border-bottom: 1px solid #F9F9F9; cursor: pointer; transition: color 0.3s; }
+  .todo-item:last-child { border: none; }
+  .todo-item input { margin-right: 12px; width: 22px; height: 22px; accent-color: var(--main-color); }
+  /* 修改：打卡后变成灰绿色，取消加粗 */
+  .todo-item.completed { color: #84A59D; font-weight: normal; }
+  .todo-item .color-mark { width: 10px; height: 10px; border-radius: 50%; margin-left: auto; }
+
+  /* --- 日历界面 --- */
+  .month-title { font-size: 16px; font-weight: bold; margin: 20px 0 10px; color: var(--main-color); border-bottom: 1px solid #EEE; padding-bottom: 5px; }
+  .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 20px; }
+  .weekday-header { text-align: center; font-size: 10px; color: #BBB; padding-bottom: 5px; }
+  .cal-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 5px; background: #fff; border-radius: 8px; position: relative; border: 1px solid #F9F9F9; cursor: pointer; overflow: hidden; }
+  .cal-day.today { border: 1.5px solid var(--main-color); background: #FFFBF0; }
+  .cal-num { font-size: 11px; margin-bottom: 2px; }
+  .dot-container { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; padding: 0 2px; }
+  .cal-dot { width: 5px; height: 5px; border-radius: 50%; }
+
+  /* --- 库界面 --- */
+  .product-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .product-card { background: white; border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); cursor: pointer; position: relative; transition: transform 0.2s; }
+  .product-card:active { transform: scale(0.98); }
+  .type-tag { font-size: 10px; color: var(--main-color); background: #F4EFEA; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 8px; }
+  .prod-name { font-weight: bold; font-size: 14px; margin-bottom: 4px; }
+
+  /* --- 弹窗通用 --- */
+  .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; z-index: 2000; justify-content: center; align-items: center; }
+  .modal-box { background: white; width: 90%; max-width: 400px; padding: 25px; border-radius: 24px; max-height: 85vh; overflow-y: auto; box-sizing: border-box; position: relative; }
+  
+  /* 表单样式 */
+  .form-label { font-size: 13px; color: #666; margin-top: 15px; display: block; font-weight: bold; }
+  input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #EEE; border-radius: 10px; box-sizing: border-box; font-size: 14px; }
+  .cycle-group { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .cycle-item { background: #F5F5F5; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1px solid transparent; }
+  .cycle-item.selected { background: #F4EFEA; border-color: var(--main-color); color: var(--main-color); }
+  
+  /* 7种颜色选择器 */
+  .color-picker { display: flex; flex-wrap: wrap; gap: 12px; padding: 10px 0; }
+  .color-radio { display: none; }
+  .color-label { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; display: inline-block; }
+  .color-radio:checked + .color-label { border-color: #333; transform: scale(1.1); }
+
+  .btn-save { width: 100%; padding: 15px; background: var(--main-color); color: white; border: none; border-radius: 12px; font-weight: bold; margin-top: 20px; cursor: pointer; }
+  .btn-cancel { width: 100%; border: none; background: none; color: #AAA; margin-top: 10px; padding: 10px; cursor: pointer; }
+
+  /* 详情卡片样式 */
+  .detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+  .detail-title { font-size: 20px; font-weight: bold; margin: 0; }
+  .detail-info { font-size: 14px; color: #555; line-height: 1.8; margin-bottom: 20px; }
+  .detail-info span { color: #888; display: inline-block; width: 70px; }
+  .btn-edit { background: #F4EFEA; color: var(--main-color); padding: 12px; border: none; border-radius: 10px; width: 100%; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+  .icon-delete { color: #E74C3C; font-size: 20px; cursor: pointer; padding: 5px; }
+</style>
+</head>
+<body>
+
+  <div id="welcome-overlay">
+    <div style="font-size: 50px; margin-bottom: 20px;">✨</div>
+    <h2 id="welcome-title" style="font-weight: 500; margin-bottom: 30px;">护肤日记</h2>
+    <button class="btn-start" onclick="handleStart()">开启今日护肤</button>
+  </div>
+
+  <div id="view-calendar" class="view active">
+    <h3>📅 护肤日历</h3>
+    <div id="calendar-container"></div>
+  </div>
+
+  <div id="view-todo" class="view">
+    <div id="expiry-banners"></div>
+    
+    <div class="section-title">✨ 今日特殊任务</div>
+    <div class="todo-section" id="special-list"></div>
+    
+    <div class="section-title">🌿 基础流程</div>
+    <div class="todo-section" id="basic-list"></div>
+    <div style="text-align: center; color: #BBB; font-size: 12px; margin-top: 30px; letter-spacing: 1px;">润物细无声</div>
+  </div>
+
+  <div id="view-library" class="view">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <div>
+        <h3 style="margin: 0 0 5px 0;">🧴 我的护肤库</h3>
+        <div style="font-size: 12px; color: #888; cursor: pointer;" onclick="setUserName()">
+          👤 <span id="display-username">未设置昵称(点击设置)</span>
+        </div>
+      </div>
+      <button onclick="showAddModal()" style="font-size:30px; border:none; background:none; color:var(--main-color); cursor:pointer;">+</button>
+    </div>
+    <div class="product-grid" id="library-list"></div>
+  </div>
+
+  <div id="day-modal" class="modal-overlay" onclick="closeDayModal(event)">
+    <div class="modal-box" style="padding: 20px; max-width: 320px;" onclick="event.stopPropagation()">
+      <h3 id="day-modal-title" style="margin-top:0; color:var(--main-color); font-size: 16px;">日期</h3>
+      <div id="day-modal-content" style="font-size: 14px; color: #444; line-height: 2;"></div>
+      <button class="btn-cancel" onclick="document.getElementById('day-modal').style.display='none'">关闭</button>
+    </div>
+  </div>
+
+  <div id="form-modal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 style="margin:0 0 10px 0" id="form-modal-title">新增产品</h3>
+      
+      <label class="form-label">产品名称</label>
+      <input type="text" id="p-name" placeholder="请输入名称">
+
+      <label class="form-label">产品类型</label>
+      <select id="p-type" onchange="handleTypeChange(this.value)">
+        <option value="基础">基础 (洁面/水/乳)</option>
+        <option value="精华">精华</option>
+        <option value="面霜">面霜</option>
+        <option value="面膜">面膜</option>
+        <option value="酸类">酸类</option>
+      </select>
+
+      <label class="form-label">使用周期 (可多选)</label>
+      <div class="cycle-group" id="cycle-container">
+        <div class="cycle-item" data-val="1">周一</div>
+        <div class="cycle-item" data-val="2">周二</div>
+        <div class="cycle-item" data-val="3">周三</div>
+        <div class="cycle-item" data-val="4">周四</div>
+        <div class="cycle-item" data-val="5">周五</div>
+        <div class="cycle-item" data-val="6">周六</div>
+        <div class="cycle-item" data-val="0">周日</div>
+      </div>
+
+      <label class="form-label">标识颜色</label>
+      <div class="color-picker">
+        <label><input type="radio" name="p-color" class="color-radio" value="#FF6B6B" checked><span class="color-label" style="background:#FF6B6B"></span></label>
+        <label><input type="radio" name="p-color" class="color-radio" value="#4D96FF"><span class="color-label" style="background:#4D96FF"></span></label>
+        <label><input type="radio" name="p-color" class="color-radio" value="#FFD93D"><span class="color-label" style="background:#FFD93D"></span></label>
+        <label><input type="radio" name="p-color" class="color-radio" value="#6BCB77"><span class="color-label" style="background:#6BCB77"></span></label>
+        <label><input type="radio" name="p-color" class="color-radio" value="#B692FE"><span class="color-label" style="background:#B692FE"></span></label>
+        <label><input type="radio" name="p-color" class="color-radio" value="#FFA8CC"><span class="color-label" style="background:#FFA8CC"></span></label>
+        <label><input type="radio" name="p-color" class="color-radio" value="#FF9F43"><span class="color-label" style="background:#FF9F43"></span></label>
+      </div>
+
+      <label class="form-label">保质期 (开封日期 & 保质月数)</label>
+      <div style="display:flex; gap:10px;">
+        <input type="date" id="p-open">
+        <input type="number" id="p-months" placeholder="几个月" style="width:100px;">
+      </div>
+
+      <label class="form-label">备注/心得</label>
+      <textarea id="p-note" placeholder="添加备注..." rows="2"></textarea>
+
+      <button class="btn-save" onclick="saveProduct()">保存记录</button>
+      <button class="btn-cancel" onclick="closeModals()">取消</button>
+    </div>
+  </div>
+
+  <div id="detail-modal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="detail-header">
+        <div>
+          <span class="type-tag" id="d-type"></span>
+          <h3 class="detail-title" id="d-name">产品名称</h3>
+        </div>
+        <div class="icon-delete" onclick="deleteCurrentProduct()" title="删除">🗑️</div>
+      </div>
+      
+      <div class="detail-info">
+        <div><span>标识颜色：</span><div id="d-color" style="width:12px; height:12px; border-radius:50%; display:inline-block; vertical-align:middle;"></div></div>
+        <div><span>使用周期：</span><b id="d-cycle"></b></div>
+        <div><span>开封日期：</span><b id="d-open"></b></div>
+        <div><span>过期日期：</span><b id="d-expire" style="color:#E74C3C"></b></div>
+        <div style="margin-top:10px;"><span>备注：</span><div id="d-note" style="color:#333; margin-top:5px; background:#F9F9F9; padding:10px; border-radius:8px;"></div></div>
+      </div>
+
+      <button class="btn-edit" onclick="openEditFromDetail()">修改信息</button>
+      <button class="btn-cancel" onclick="closeModals()">关闭</button>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <div class="nav-item active" onclick="switchTab('calendar', this)"><span class="nav-icon">📅</span>日历</div>
+    <div class="nav-item" onclick="switchTab('todo', this)"><span class="nav-icon">✅</span>打卡</div>
+    <div class="nav-item" onclick="switchTab('library', this)"><span class="nav-icon">🧴</span>库</div>
+  </nav>
+
+  <script>
+    let products = JSON.parse(localStorage.getItem('skincare_db')) || [];
+    let dailyStatus = JSON.parse(localStorage.getItem('skincare_status')) || {};
+    let userName = localStorage.getItem('skincare_username') || "";
+    let currentEditId = null; 
+    let currentDetailId = null; 
+
+    // 初始化：绑定周期点击事件
+    document.querySelectorAll('.cycle-item').forEach(item => {
+      item.onclick = () => item.classList.toggle('selected');
+    });
+
+    // 导航切换
+    function switchTab(tab, el) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById('view-' + tab).classList.add('active');
+      el.classList.add('active');
+      
+      if(tab === 'todo') renderTodo();
+      if(tab === 'calendar') renderCalendar();
+      if(tab === 'library') renderLibrary();
+    }
+
+    // 设置用户名
+    function setUserName() {
+      const name = prompt("请输入您的昵称：", userName);
+      if (name !== null) {
+        userName = name.trim();
+        localStorage.setItem('skincare_username', userName);
+        updateUserNameDisplay();
+      }
+    }
+
+    function updateUserNameDisplay() {
+      const displaySpan = document.getElementById('display-username');
+      const welcomeTitle = document.getElementById('welcome-title');
+      if (userName) {
+        displaySpan.innerText = userName;
+        welcomeTitle.innerText = `欢迎回来，${userName} ✨`;
+      } else {
+        displaySpan.innerText = "未设置昵称(点击设置)";
+        welcomeTitle.innerText = `护肤日记`;
+      }
+    }
+
+    // 启动页逻辑
+    function handleStart() {
+      if(products.length === 0) {
+        alert("✨ 欢迎！请先录入您正在使用的护肤品。");
+        document.getElementById('welcome-overlay').style.display = 'none';
+        switchTab('library', document.querySelectorAll('.nav-item')[2]);
+      } else {
+        document.getElementById('welcome-overlay').style.transform = 'translateY(-100%)';
+        renderCalendar();
+      }
+    }
+
+    // 弹窗控制
+    function closeModals() {
+      document.getElementById('form-modal').style.display = 'none';
+      document.getElementById('detail-modal').style.display = 'none';
+    }
+
+    function closeDayModal(e) {
+      if (e.target.id === 'day-modal') {
+        document.getElementById('day-modal').style.display = 'none';
+      }
+    }
+
+    // 显示每日任务详情
+    function showDayTasks(dateStr, dayOfWeek) {
+      let tasks = products.filter(p => p.weeks.includes(dayOfWeek));
+      let html = tasks.map(p => `
+        <div style="display:flex; align-items:center; margin-bottom:8px;">
+          <div style="width:10px; height:10px; border-radius:50%; background:${p.color}; margin-right:8px;"></div>
+          <span>${p.name} <span style="color:#999; font-size:12px;">(${p.type})</span></span>
+        </div>
+      `).join('');
+      
+      if(!html) html = '<div style="color:#aaa; text-align:center;">当日无护肤任务 ✨</div>';
+
+      // 检查当天是否有过期的产品
+      let expiries = products.filter(p => p.expireDate === dateStr);
+      if (expiries.length > 0) {
+        html += `<div style="margin-top:15px; border-top:1px dashed #eee; padding-top:10px;">`;
+        expiries.forEach(p => {
+          html += `<div style="color:#E74C3C; font-weight:bold; font-size:13px; margin-bottom:5px;">🚨 提醒：${p.name} 今日过期！</div>`;
+        });
+        html += `</div>`;
+      }
+
+      document.getElementById('day-modal-title').innerText = `${dateStr} 护肤清单`;
+      document.getElementById('day-modal-content').innerHTML = html;
+      document.getElementById('day-modal').style.display = 'flex';
+    }
+
+    function showAddModal() {
+      currentEditId = null;
+      document.getElementById('form-modal-title').innerText = "新增产品";
+      document.getElementById('p-name').value = "";
+      document.getElementById('p-type').value = "基础";
+      document.getElementById('p-open').value = "";
+      document.getElementById('p-months').value = "";
+      document.getElementById('p-note').value = "";
+      document.querySelectorAll('.cycle-item').forEach(i => i.classList.add('selected')); 
+      document.querySelector('input[name="p-color"][value="#FF6B6B"]').checked = true;
+      
+      document.getElementById('form-modal').style.display = 'flex';
+    }
+
+    function handleTypeChange(val) {
+      if(val === '基础') {
+        document.querySelectorAll('.cycle-item').forEach(i => i.classList.add('selected'));
+      } else {
+        document.querySelectorAll('.cycle-item').forEach(i => i.classList.remove('selected'));
+      }
+    }
+
+    function saveProduct() {
+      const name = document.getElementById('p-name').value;
+      const openDate = document.getElementById('p-open').value;
+      const months = document.getElementById('p-months').value;
+      let expireDate = "";
+
+      if(openDate && months) {
+        let d = new Date(openDate);
+        d.setMonth(d.getMonth() + parseInt(months));
+        expireDate = d.toISOString().split('T')[0];
+      }
+
+      const weeks = Array.from(document.querySelectorAll('.cycle-item.selected')).map(i => parseInt(i.dataset.val));
+      
+      const prodData = {
+        id: currentEditId || "id_" + Date.now(),
+        name: name || "未命名产品",
+        type: document.getElementById('p-type').value,
+        weeks: weeks,
+        color: document.querySelector('input[name="p-color"]:checked').value,
+        openDate: openDate,
+        months: months,
+        expireDate: expireDate,
+        note: document.getElementById('p-note').value
+      };
+
+      if(currentEditId) {
+        const index = products.findIndex(p => p.id === currentEditId);
+        if(index > -1) products[index] = prodData;
+      } else {
+        products.push(prodData);
+      }
+
+      localStorage.setItem('skincare_db', JSON.stringify(products));
+      closeModals();
+      renderLibrary();
+      renderCalendar();
+      renderTodo();
+    }
+
+    function showDetailModal(id) {
+      const p = products.find(x => x.id === id);
+      if(!p) return;
+      currentDetailId = id;
+
+      document.getElementById('d-type').innerText = p.type;
+      document.getElementById('d-name').innerText = p.name;
+      document.getElementById('d-color').style.background = p.color;
+      
+      const weekStr = p.weeks.length === 7 ? '每日' : '每周 ' + p.weeks.map(w => ['日','一','二','三','四','五','六'][w]).join(', ');
+      document.getElementById('d-cycle').innerText = weekStr;
+      
+      document.getElementById('d-open').innerText = p.openDate || '未设置';
+      document.getElementById('d-expire').innerText = p.expireDate ? `${p.expireDate} (保质${p.months}个月)` : '未推算';
+      document.getElementById('d-note').innerText = p.note || '暂无备注';
+
+      document.getElementById('detail-modal').style.display = 'flex';
+    }
+
+    function openEditFromDetail() {
+      const p = products.find(x => x.id === currentDetailId);
+      if(!p) return;
+      
+      currentEditId = p.id;
+      document.getElementById('detail-modal').style.display = 'none';
+      document.getElementById('form-modal-title').innerText = "修改护肤品";
+      
+      document.getElementById('p-name').value = p.name;
+      document.getElementById('p-type').value = p.type;
+      document.getElementById('p-open').value = p.openDate || "";
+      document.getElementById('p-months').value = p.months || "";
+      document.getElementById('p-note').value = p.note || "";
+      
+      document.querySelectorAll('.cycle-item').forEach(i => {
+        if(p.weeks.includes(parseInt(i.dataset.val))) i.classList.add('selected');
+        else i.classList.remove('selected');
+      });
+
+      const colorRadio = document.querySelector(`input[name="p-color"][value="${p.color}"]`);
+      if(colorRadio) colorRadio.checked = true;
+
+      document.getElementById('form-modal').style.display = 'flex';
+    }
+
+    function deleteCurrentProduct() {
+      if(confirm("确定要删除这个护肤品吗？")) {
+        products = products.filter(p => p.id !== currentDetailId);
+        localStorage.setItem('skincare_db', JSON.stringify(products));
+        closeModals();
+        renderLibrary();
+        renderCalendar();
+        renderTodo();
+      }
+    }
+
+    function renderLibrary() {
+      const typeOrder = { "基础": 1, "精华": 2, "面霜": 3, "面膜": 4, "酸类": 5 };
+      const sortedProducts = [...products].sort((a, b) => (typeOrder[a.type] || 99) - (typeOrder[b.type] || 99));
+
+      document.getElementById('library-list').innerHTML = sortedProducts.map(p => `
+        <div class="product-card" onclick="showDetailModal('${p.id}')">
+          <span class="type-tag">${p.type}</span>
+          <div class="prod-name">${p.name}</div>
+          <div style="font-size:11px; color:#999;">${p.weeks.length === 7 ? '每日' : '每周'+p.weeks.map(w=>['日','一','二','三','四','五','六'][w]).join(',')}</div>
+          ${p.expireDate ? `<div style="font-size:10px; color:#E74C3C; margin-top:8px;">过期: ${p.expireDate}</div>` : '<div style="font-size:10px; color:#CCC; margin-top:8px;">未设过期日</div>'}
+        </div>
+      `).join('') || '<div style="grid-column: span 2; text-align:center; color:#999; padding:30px 0;">空空如也，快去右上角添加吧~</div>';
+    }
+
+    function renderTodo() {
+      const today = new Date().getDay();
+      const banner = document.getElementById('expiry-banners');
+      banner.innerHTML = '';
+
+      products.forEach(p => {
+        if(p.expireDate) {
+          const diff = Math.ceil((new Date(p.expireDate) - new Date()) / (1000*3600*24));
+          if(diff > 0 && diff <= 30) {
+            banner.innerHTML += `<div class="expiry-banner"><span>⚠️ ${p.name} 仅剩 ${diff} 天过期</span><span style="cursor:pointer; font-size:16px;" onclick="this.parentElement.remove()">×</span></div>`;
+          } else if (diff <= 0) {
+            banner.innerHTML += `<div class="expiry-banner" style="background:#FFEBEB; border-color:#E74C3C; color:#C0392B;"><span>🚨 ${p.name} 已过期！</span><span style="cursor:pointer; font-size:16px;" onclick="this.parentElement.remove()">×</span></div>`;
+          }
+        }
+      });
+
+      const special = products.filter(p => p.type !== '基础' && p.weeks.includes(today));
+      const basic = products.filter(p => p.type === '基础' && p.weeks.includes(today));
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      document.getElementById('special-list').innerHTML = special.map(p => {
+        const isChecked = dailyStatus[todayStr + '_' + p.id];
+        return `
+        <label class="todo-item ${isChecked?'completed':''}">
+          <input type="checkbox" ${isChecked?'checked':''} onchange="toggleItem('${p.id}', this)">
+          ${p.name} <div class="color-mark" style="background:${p.color}"></div>
+        </label>`
+      }).join('') || '<div style="padding:10px;color:#CCC">今日无特殊护理</div>';
+
+      document.getElementById('basic-list').innerHTML = basic.map(p => {
+        const isChecked = dailyStatus[todayStr + '_' + p.id];
+        return `
+        <label class="todo-item ${isChecked?'completed':''}">
+          <input type="checkbox" ${isChecked?'checked':''} onchange="toggleItem('${p.id}', this)"> 
+          ${p.name} <div class="color-mark" style="background:${p.color}"></div>
+        </label>`
+      }).join('') || '<div style="padding:10px;color:#CCC">今日无基础护理</div>';
+    }
+
+    function toggleItem(id, cb) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      dailyStatus[todayStr + '_' + id] = cb.checked;
+      localStorage.setItem('skincare_status', JSON.stringify(dailyStatus));
+      if (cb.checked) {
+        cb.parentElement.classList.add('completed');
+      } else {
+        cb.parentElement.classList.remove('completed');
+      }
+    }
+
+    function renderCalendar() {
+      const container = document.getElementById('calendar-container');
+      container.innerHTML = "";
+      
+      const now = new Date();
+      // 获取今天0点的时间，用于判断过去日期
+      const todayDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      // 渲染当前月及未来的11个月，共12个月（扩展到一年）
+      for(let m = 0; m < 12; m++) {
+        const targetMonth = new Date(now.getFullYear(), now.getMonth() + m, 1);
+        const year = targetMonth.getFullYear();
+        const month = targetMonth.getMonth();
+        
+        let html = `<div class="month-title">${year}年 ${month + 1}月</div>`;
+        html += `<div class="calendar-grid">`;
+        ['日','一','二','三','四','五','六'].forEach(d => html += `<div class="weekday-header">${d}</div>`);
+        
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        for(let i = 0; i < firstDay; i++) html += `<div></div>`;
+        
+        for(let day = 1; day <= daysInMonth; day++) {
+          const dateObj = new Date(year, month, day);
+          const isToday = dateObj.getTime() === todayDateObj.getTime();
+          const isPast = dateObj.getTime() < todayDateObj.getTime();
+          const dayOfWeek = dateObj.getDay();
+          
+          // 格式化日期：YYYY-MM-DD
+          const yearStr = dateObj.getFullYear();
+          const monthStr = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const dayStr = String(dateObj.getDate()).padStart(2, '0');
+          const dateStr = `${yearStr}-${monthStr}-${dayStr}`;
+          
+          html += `<div class="cal-day ${isToday ? 'today' : ''}" onclick="showDayTasks('${dateStr}', ${dayOfWeek})">
+            <span class="cal-num">${day}</span>`;
+            
+          // 如果是过去的日期，显示灰色的勾；如果是今天或未来，显示圆点
+          if (isPast) {
+             html += `<div style="color: #CCC; font-size: 14px; margin-top: 2px;">✓</div>`;
+          } else {
+             html += `<div class="dot-container">`;
+             products.forEach(p => {
+               if(p.weeks.includes(dayOfWeek)) {
+                 html += `<div class="cal-dot" style="background:${p.color}"></div>`;
+               }
+             });
+             html += `</div>`;
+          }
+
+          // 检查该天是否有产品过期（蓝色边框标注）
+          products.forEach(p => {
+            if(p.expireDate === dateStr) {
+               html += `<div style="font-size: 9px; color: #4D96FF; border: 1px solid #4D96FF; border-radius: 2px; padding: 0 2px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%; text-align: center;">${p.name}过期</div>`;
+            }
+          });
+
+          html += `</div>`;
+        }
+        html += `</div>`;
+        container.innerHTML += html;
+      }
+    }
+
+    // 页面加载默认执行
+    window.onload = () => {
+      updateUserNameDisplay();
+      renderCalendar();
+    };
+  </script>
+</body>
+</html>
